@@ -17,6 +17,8 @@ import {
   Terminal,
   Play,
   RotateCw,
+  Mic,
+  MicOff,
 } from 'lucide-react';
 
 interface StockQuote {
@@ -168,6 +170,60 @@ export function App() {
   ]);
   const [inputMsg, setInputMsg] = useState('');
   const [chatLoading, setChatLoading] = useState(false);
+  const [isListening, setIsListening] = useState(false);
+  const recognitionRef = useRef<any>(null);
+
+  // Initialize Speech Recognition
+  useEffect(() => {
+    const SpeechRecognition =
+      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+
+    if (SpeechRecognition) {
+      const recognition = new SpeechRecognition();
+      recognition.continuous = false;
+      recognition.interimResults = false;
+      recognition.lang = 'en-US';
+
+      recognition.onstart = () => {
+        setIsListening(true);
+      };
+
+      recognition.onresult = (event: any) => {
+        const transcript = event.results[0][0].transcript;
+        setInputMsg(transcript);
+        setIsListening(false);
+      };
+
+      recognition.onerror = (event: any) => {
+        console.error('Speech recognition error:', event.error);
+        setIsListening(false);
+      };
+
+      recognition.onend = () => {
+        setIsListening(false);
+      };
+
+      recognitionRef.current = recognition;
+    }
+  }, []);
+
+  const toggleListening = () => {
+    if (!recognitionRef.current) {
+      alert('Speech Recognition is not supported in this browser. Please use Google Chrome or Microsoft Edge.');
+      return;
+    }
+
+    if (isListening) {
+      recognitionRef.current.stop();
+      setIsListening(false);
+    } else {
+      try {
+        recognitionRef.current.start();
+      } catch (e) {
+        console.error('Recognition already started or error:', e);
+      }
+    }
+  };
 
   // Chat scroll container
   const chatBottomRef = useRef<HTMLDivElement>(null);
@@ -966,22 +1022,44 @@ export function App() {
               <div ref={chatBottomRef} />
             </div>
 
-            {/* Pinned Bottom Input Form */}
-            <form onSubmit={handleSendMessage} style={{ padding: '12px 16px', borderTop: '1px solid #1e293b', backgroundColor: '#0d1322', display: 'flex', gap: '8px', flexShrink: 0 }}>
+            {/* Pinned Bottom Input Form with Voice Search */}
+            <form onSubmit={handleSendMessage} style={{ padding: '12px 16px', borderTop: '1px solid #1e293b', backgroundColor: '#0d1322', display: 'flex', gap: '8px', alignItems: 'center', flexShrink: 0 }}>
+              <button
+                type="button"
+                onClick={toggleListening}
+                title={isListening ? 'Stop listening' : 'Start voice searching'}
+                style={{
+                  backgroundColor: isListening ? '#dc2626' : '#1e293b',
+                  color: isListening ? '#ffffff' : '#94a3b8',
+                  border: isListening ? '1px solid #ef4444' : '1px solid #334155',
+                  padding: '9px 11px',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  transition: 'all 0.2s ease',
+                  animation: isListening ? 'pulse 1.5s infinite' : 'none',
+                }}
+              >
+                {isListening ? <MicOff size={16} /> : <Mic size={16} />}
+              </button>
+
               <input
                 type="text"
                 value={inputMsg}
                 onChange={(e) => setInputMsg(e.target.value)}
-                placeholder="Ask about valuation, technicals, or concepts..."
+                placeholder={isListening ? '🎙️ Listening... speak now' : 'Ask about valuation, technicals, or concepts...'}
                 style={{
                   flex: 1,
-                  backgroundColor: '#111827',
-                  border: '1px solid #334155',
+                  backgroundColor: isListening ? '#1a1016' : '#111827',
+                  border: isListening ? '1px solid #ef4444' : '1px solid #334155',
                   color: '#fff',
                   padding: '9px 12px',
                   borderRadius: '8px',
                   fontSize: '13px',
                   outline: 'none',
+                  transition: 'all 0.2s ease',
                 }}
               />
               <button
